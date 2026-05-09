@@ -1,0 +1,520 @@
+---
+title: "Group_7_Project"
+author: "Riyan"
+date: "2026-04-01"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+Importing Libraries
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stats)
+library(car)
+library(readr)
+```
+
+# Task 1
+
+#### Task 1.1: Introduction to the Dataset:
+
+***Diabetes problem*** : <br/> Diabetes is one of the most dangerous
+diseases in the modern world. A study on diabetes in 2019 [1] estimates
+that diabetes accounts for roughly 11% of adult deaths in globe. Not
+only it is dangerous itself, type 2 diabetes, which accounts for 90% of
+diabetes, could lead to the development of other dangerous diseases such
+as Chronic kidney disease [2]. Smoking and drinking are considered two
+risk factors of diabetes [3]. These factors usually come together in
+adult life since an increase in one will lead to an increase in the
+other [4]. While some sources confirm that smoking does have an impact
+on diabetes [3][5], the impact of drinking and its joint impact with
+smoking remains controversial[3].Thus, this study will examine the
+impact of both smoking and drinking on diabetes. It asks a main research
+question: “How do smoking and drinking impact the likelihood of
+diabetes?”. <br/>
+
+***Kaggle dataset*** : <br/> To answer the main research question, we
+use the dataset "Diabetes Health Indicators Dataset"[6] from Kaggle. It
+is collected by BRFSS and published on Kaggle by Alex Teboul. It is the
+collection of more than 400,000 survey for American people in 2015. The
+dataset [6] has *CC0: Public Domain* license which mean it can be
+analyzed without permission [7]. It contains information about
+individuals’ health conditions, lifestyle behaviors, and demographic
+characteristics. It includes variables such as BMI, smoking status,
+alcohol consumption, physical activity, and diabetes status. The dataset
+is structured in a tabular format where each row represents an
+individual and each column represents a specific health-related
+variable.<br/>
+
+***Reason for the choice of the dataset*** :<br/>This data set was
+chosen because it is directly related to the research topic and includes
+important variables such as smoking and drinking for our research.
+Furthermore, [6] is one of reliable not synthetic dataset in Kaggle. The
+large size of the dataset also helps in producing reliable and
+meaningful results.
+
+Loading Dataset
+
+```{r}
+
+data <- read_csv("./archive/diabetes_binary_health_indicators_BRFSS2015.csv")
+
+head(data)
+str(data)
+```
+
+#### Task 1.2: Data Summarization:
+
+```{r}
+#Summary Statistics
+#summary
+#We are not finding Mode as data is continuous
+
+numeric_data <- data %>% select(where(is.numeric))
+
+descriptive_stats <- data.frame(
+  Mean = sapply(numeric_data, function(x) mean(x, na.rm = TRUE)),
+  Median = sapply(numeric_data, function(x) median(x, na.rm = TRUE)),
+  Q1 = sapply(numeric_data, function(x) quantile(x, 0.25, na.rm = TRUE)),
+  Q3 = sapply(numeric_data, function(x) quantile(x, 0.75, na.rm = TRUE)),
+  IQR = sapply(numeric_data, function(x) IQR(x, na.rm = TRUE))
+)
+
+descriptive_stats
+
+```
+
+```{r}
+# Relative Frequency Tables
+print("HighChol Distribution (%)")
+prop.table(table(data$HighChol)) * 100
+
+print("CholCheck Distribution (%)")
+prop.table(table(data$CholCheck)) * 100
+
+print("Stroke Distribution (%)")
+prop.table(table(data$Stroke)) * 100
+
+print("Heart Disease or Attack Distribution (%)")
+prop.table(table(data$HeartDiseaseorAttack)) * 100
+
+print("Physical Activity Distribution (%)")
+prop.table(table(data$PhysActivity)) * 100
+
+print("Fruits Consumption Distribution (%)")
+prop.table(table(data$Fruits)) * 100
+
+print("Vegetables Consumption Distribution (%)")
+prop.table(table(data$Veggies)) * 100
+
+print("Heavy Alcohol Consumption Distribution (%)")
+prop.table(table(data$HvyAlcoholConsump)) * 100
+
+print("Any Healthcare Coverage Distribution (%)")
+prop.table(table(data$AnyHealthcare)) * 100
+
+print("Diabetes Distribution (%)")
+prop.table(table(data$Diabetes_binary)) * 100
+
+print("Smoking Distribution (%)")
+prop.table(table(data$Smoker)) * 100
+
+print("Drinking Distribution (%)")
+prop.table(table(data$HvyAlcoholConsump)) * 100
+```
+
+```{r}
+#Data Types Conversion
+data$Diabetes_binary <- as.factor(data$Diabetes_binary)
+data$Sex <- as.factor(data$Sex)
+data$HighBP <- as.factor(data$HighBP)
+data$Smoker <- as.factor(data$Smoker)
+data$HvyAlcoholConsump <- as.factor(data$HvyAlcoholConsump)
+
+```
+
+#### Task 1.3: Data Visualization:
+
+```{r}
+#Histogram
+ggplot(data, aes(x = BMI)) +
+  geom_histogram(bins = 30) +
+  ggtitle("Distribution of BMI")
+```
+
+```{r}
+#Boxplot
+ggplot(data, aes(x = Diabetes_binary, y = BMI)) +
+  geom_boxplot() +
+  ggtitle("BMI vs Diabetes Status")
+```
+
+```{r}
+#Bar Chart
+ggplot(data, aes(x = Diabetes_binary)) +
+  geom_bar() +
+  ggtitle("Diabetes Distribution")
+```
+
+```{r}
+ggplot(data, aes(x = Smoker)) +
+  geom_bar() +
+  ggtitle("Smoking Distribution")
+```
+
+```{r}
+ggplot(data, aes(x = HvyAlcoholConsump)) +
+  geom_bar() +
+  ggtitle("Drinking Distribution")
+```
+
+#### Task 1.4 : Data Quality Assessment, Data Wrangling and Cleaning:
+
+Let's first check for any missing values:
+
+```{r}
+#Checking for missing values
+colSums(is.na(data))
+```
+
+As there are no missing values, we can move ahead to remove any outliers
+in our dataset, so from histogram we created, we found out anything less
+than 10 and greater than 60 can be considered as an outlier
+
+```{r}
+#Removing Outliers
+data <- data %>% filter(BMI > 10 & BMI < 60)
+show(head(data))
+```
+
+# Task 2
+
+#### Task 2.1: Research Question Development:
+
+As stated in Task 1, the main research question for this study is: *“How
+do smoking and heavy alcohol consumption impact the likelihood of
+diabetes?”*. In order to answer this, two sub-questions are asked
+<br/><br/> (a). Does Smoking or Drinking individually impact the
+likelihood of diabetes?<br/><br/> (b). How do Smoking and Drinking
+jointly impact the likelihood of diabetes?<br/> <br/> In Task 2, we
+focus on answer the question (a) by using chi-square test. (a) can be
+further divided into two sub-questions (a.1) Does Smoking impact the
+likelihood of diabetes? (a.2) Does Drinking impact the likelihood of
+diabetes?
+
+The variables used are :
+
+-   Smoker (0 = No, 1 = Yes):Have you smoked at least 100 cigarettes in
+    your entire life?<br/><br/>
+
+-   HvyAlcoholConsump (0 = No, 1 = Yes) : Heavy drinkers where adult men
+    having more than 14 drinks per week or adult women having more than
+    7 drinks per week<br/><br/>
+
+-   Diabetes_binary (0 = No diabetes, 1 = PreDiabetes or Diabetes):
+    <br/><br/>
+
+All these variables are discrete between 0 and 1, so chi-square test is
+suitable.
+
+#### Task 2.2: Data Preparation:
+
+For this part, the dataset was prepared by selecting the required
+variables. These variables were already cleaned and converted earlier.
+<br/>
+
+Since all variables are categorical, contingency tables were created to
+observe how diabetes levels are distributed across smoking and alcohol
+groups.
+
+```{r}
+print("Smoking vs Diabetes")
+table(data$Smoker, data$Diabetes_binary)
+
+print("Alcohol vs Diabetes")
+table(data$HvyAlcoholConsump, data$Diabetes_binary)
+
+```
+
+***Checking assumptions for chi-square test*** :<br/>
+
+-   ***1] All variables used in the test should be categorical:*** In
+    this case, Smoking, Alcohol consumption, and Diabetes are
+    categorical variables, so this condition is satisfied. <br/>
+
+-   ***2] The observations should be independent:*** Since each row in
+    the dataset represents a different individual, this assumption is
+    also satisfied. <br/>
+
+-   ***3] The expected frequency in each cell should be at least 5***:
+    That is given below:
+
+```{r}
+print("Expected frequency for Smoking")
+chisq.test(table(data$Smoker, data$Diabetes_binary))$expected
+print("Expected frequency for Drinking")
+chisq.test(table(data$HvyAlcoholConsump, data$Diabetes_binary))$expected
+```
+
+Those assumptions are satisfied so we can conduct our test.
+
+#### Task 2.3: Hypothesis construction and testing:
+
+***Question (a.1): Does Smoking impact the likelihood of
+diabetes?***<br/>
+
+-   ***Null H0***: Smoking and diabetes are not related<br/>
+
+-   ***Alternative H1***: Smoking and diabetes are related
+
+```{r}
+chisq.test(table(data$Smoker, data$Diabetes_binary))
+```
+
+***Question (a.2): Does Drinking impact the likelihood of
+diabetes?***<br/>
+
+-   ***Null H0***: Alcohol consumption and diabetes are not related
+    <br/>
+
+-   ***Alternative H1***: Alcohol consumption and diabetes are related
+
+```{r}
+chisq.test(table(data$HvyAlcoholConsump, data$Diabetes_binary))
+```
+
+Result: The p-values for both tests are less than 0.05, so the null
+hypothesis is rejected. This means that both smoking and alcohol
+consumption have a statistically significant association with diabetes
+status, including no diabetes and diabetes.
+
+#### Task 2.4: Rationale for test Choice:
+
+The chi-square test is used because all variables are categorical. It
+helps in checking whether there is a relationship between two
+categorical variables. One limitation is that it only shows association
+and not how strong the relationship is. Also, it does not include other
+factors.
+
+# Task 3:
+
+#### Task 3.1: Research Question:
+
+In Task 2, the impact of smoking and alcohol consumption on diabetes was
+analyzed separately using chi-square test. That helped in understanding
+their individual effects.<br/>
+
+In this task, the focus is on understanding their combined impact. We
+answer the question (b). How do Smoking and Drinking jointly impact the
+likelihood of diabetes?<br/>
+
+This is important because in real life, people are often exposed to
+multiple lifestyle factors together. Furthermore, as stated in [3], the
+past literature usually look at individual impacts such as what we did
+in task 2, but their joint impact is not well-studied. So instead of
+just looking individual impacts like task 2, Task 3 use advance
+analytical approach by using Multivarte Logistic Regression to study
+their join impact on the likelihood of having diabetes.<br/>
+
+#### Task 3.2: Model Selection:
+
+[8] taught us that when dealing with categorical variables, we should
+use Multivariate Logistic Regression. It can be used in R by using
+Generalized Linear Model ***glm***
+
+The independent variables are:
+
+Smoker HvyAlcoholConsump
+
+Before applying the model, I converted all variables into factors (even
+thugh we already did).
+
+```{r}
+# Convert variables to factors
+data$Diabetes_binary <- as.factor(data$Diabetes_binary)
+data$Smoker <- as.factor(data$Smoker)
+data$HvyAlcoholConsump <- as.factor(data$HvyAlcoholConsump)
+```
+***Checking assumptions for Multivariate Logistic Regression*** :<br/>
+
+-   ***1] The dependent variable should be categorical***: In this case,
+    Diabetes is categorical, so this condition is satisfied. <br/>
+
+-   ***2] The observations should be independent*** Each row represents
+    a different individual, so this assumption is satisfied. <br/>
+
+-   ***3] There should not be a strong relationship between independent
+    variables***: Since only Smoking and Alcohol are used, this issue is
+    minimal.
+
+Those assumptions are satisfied so the regression model will be created
+to study the joint effect of smoking and alcohol on diabetes.
+#### Task 3.3: Model Fitting and Evaluation:
+
+```{r}
+model <- glm(Diabetes_binary ~ Smoker + HvyAlcoholConsump, data = data, family = binomial)
+
+summary(model)
+```
+
+**Result:** Smoking has a positive coefficient, which means smoking
+increases the likelihood of diabetes. Alcohol has a negative
+coefficient(-0.986419) in this dataset, which shows an inverse
+relationship. Both has pretty small p value which mean that they are
+signficiant and doesn't happen by chance. However, this is show no
+different than task 2. [8] show that we can dive deep into the logistic
+model by using the odd ratios:
+
+```{r}
+exp(coef(model))
+```
+
+To Intepret this: - Smoker: for every unit increase in Smoker1, the
+likelihood of having diabetes increase by 47,47% <br/> -
+HvyAlcoholConsump1: for every unit increase in HvyAlcoholConsump1, the
+likelihood of having diabetes decrease by (1- 0.3387765) \* 100% \~
+66,12% <br/>
+
+#### Task 3.4: Insight Extraction:
+
+The result of 3.3 is quite suprising result since the impact of Alcohol
+is larger than the impact of Smoking in reverse direction. Which might
+indicate that Drinking cancel the consequence of Smoking in term of
+diabetes.<br/>
+
+To better understand the combined effect of smoking and alcohol on
+diabetes, we can use simple summaries and visualization.
+
+```{r}
+# Create groups
+data$group <- interaction(data$Smoker, data$HvyAlcoholConsump)
+
+# Rename groups
+levels(data$group) <- c(
+  "Non-Smoker & Non-Drinker",
+  "Smoker & Non-Drinker",
+  "Non-Smoker & Drinker",
+  "Smoker & Drinker"
+)
+
+# Average diabetes level
+tapply(as.numeric(as.character(data$Diabetes_binary)), data$group, mean)
+```
+
+Visualization:
+
+```{r}
+library(ggplot2)
+
+data$Diabetes_binary <- factor(data$Diabetes_binary,
+                            levels = c(0,1),
+                            labels = c("No Diabetes","Diabetes"))
+
+# Plot
+ggplot(data, aes(x = group, fill = Diabetes_binary)) +
+  geom_bar(position = "fill") +
+  labs(title = "Diabetes Distribution by Smoking and Alcohol",
+       x = "Group",
+       y = "Proportion") +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+```
+
+As seen above, without Drinking, the Diabetes propotion in both
+Non-Smoking and Smoking is higher compared to with Drinking.
+
+# Task 4
+
+#### Task 4.1 Result Discussion:
+
+In Task 2, we have checked the individual impacts of drinking using chi
+square test for contigency table. The result of both cases show a small
+p value \< 0.5 which indicate that both have strong respective impact on
+the likelihood of having diabetes. However, whether they together
+increase the likelihood or what is unclear. Thus, in task 3 we examine
+the joint impact both of them by introducing and using Multivate
+Logistic Regression. Logistic not Linear because our respond variable is
+categorical. The result show that both variable Drinking and Smoking
+have opposite impacts. Smoking increases the chance of having diabetes
+whereas Drinking decreases it. What make our study standout is because
+we found that the impact of Drinking 66,12% is stronger than that of
+Smoking 47,47%. Even though it has good impact on diabetes, the study
+doesn't endorse the heavy use of Alcohol to cancel impact of Smoking
+because Alcohol itself could lead to many other risks. As [3] suggests,
+we could take advantage of this impact by consuming Alcohol with
+adequate quantity.
+
+#### Task 4.2 Limitations of the Analysis:
+
+-   Small number of used variable: This dataset consists of many other
+    factors such as BMI or Cholestorol,... up to 21 variables.However
+    our study only involve two factors which are drinking and
+    smoking.<br/>
+
+-   Pre-diabetes: Our study group diabetes and pre-diabetes as a single
+    group to study about the general diabetes.While this helps in term
+    of simplicity, more complex pattern and insights might require the
+    seperation. <br/>
+
+-   Survey: Even though this is a collection from reliable organization.
+    It is still survey-based which mean that they could make mistake
+    while filling the survey
+
+#### Task 4.3 Improvenments:
+
+-   Actual Record: Instead of having, it might be better to ask the
+    health centre for the actual record. This is better than the
+    patients mannually fill the survey due to the strict procedure in
+    Health Centre. However, it might raise some questions about the
+    permission and ethics<br/>
+-   More variables: More variables used in the study could help us in
+    understanding the diabetes more<br/>
+-   Separation for pre-diabetes: By adding the pre-diabetes, we could
+    ask more questions. For example, we could further examine whether
+    Smoking and Drinking leads to pre-diabetes more or directly to
+    diabetes.
+
+# Reference
+
+[1] P. Saeedi et al., “Mortality attributable to diabetes in 20–79 years
+old adults, 2019 estimates: Results from the International Diabetes
+Federation Diabetes Atlas, 9th edition,” Diabetes Research and Clinical
+Practice, vol. 162, Art. no. 108086, 2020, doi:
+10.1016/j.diabres.2020.108086.
+
+[2] D. Xie et al., “Global burden and influencing factors of chronic
+kidney disease due to type 2 diabetes in adults aged 20–59 years,
+1990–2019,” Scientific Reports, vol. 13, no. 1, Art. no. 20234, 2023,
+doi: 10.1038/s41598-023-47091-y.
+
+[3] I. Paz-Graniel et al., “Alcohol, smoking, and their synergy as risk
+factors for incident type 2 diabetes,” American Journal of Preventive
+Medicine, vol. 69, no. 5, Art. no. 108011, 2025, doi:
+10.1016/j.amepre.2025.108011.
+
+[4] Y. R. Yanjun, C. B. Castro, and J.-P. L., “Drink and smoke; drink or
+smoke? The interdependence between alcohol and cigarette consumption for
+men in China,” Empirical Economics, vol. 58, no. 3, pp. 921–955, 2020,
+doi: 10.1007/s00181-018-1557-x.
+
+[5] Health Canada, “Tobacco and type 2 diabetes,” Jul. 26, 2023.
+[Online]. Available:
+<https://www.canada.ca/en/health-canada/services/health-concerns/tobacco/legislation/tobacco-product-labelling/tobacco-type-2-diabetes.html>
+
+[6] A. Teboul, “Diabetes Health Indicators Dataset,” Kaggle, n.d.
+[Online]. Available:
+<https://www.kaggle.com/datasets/alexteboul/diabetes-health-indicators-dataset/data>
+<br/>
+
+[7] Creative Commons, “Creative Commons — CC0 1.0 Universal,” 2019.
+[Online]. Available:
+<https://creativecommons.org/publicdomain/zero/1.0/> <br/>
+
+[8] U. Riswanto, “A Beginner’s Guide to Multivariate Logistic Regression
+in R,” Medium, Apr. 20, 2025. [Online]. Available:
+<https://ujangriswanto08.medium.com/a-beginners-guide-to-multivariate-logistic-regression-in-r-9aa3b763f564>
+<br/>
